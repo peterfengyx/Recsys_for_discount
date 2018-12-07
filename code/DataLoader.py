@@ -23,21 +23,25 @@ def parse(path):
         yield eval(l)
 
 class DataLoader(object):
-    def __init__(self,category,save_path):
+    def __init__(self,category,save_name):
         self.category=category
         self.max_user=10000
         self.price_dict={}
+        self.price_dict_temp={}
         self.cate_dict={}
+        self.cate_dict_temp={}
         self.top_value=15
         self.model=NMF()
         self.topk=500
-        if not os.path.isfile(save_path):
+        self.max_price={}
+        self.save_path= os.path.join("..", "feature", save_name)
+        if not os.path.isfile(self.save_path):
             self.load_data()
             #self.create_user_item_matrix()
             self.create_ratings()
-            self.save_data(save_path)
+            self.save_data(self.save_path)
         else:
-            self.load(save_path)
+            self.load(self.save_path)
         
     
     def load_ratings(self, filename):
@@ -73,13 +77,18 @@ class DataLoader(object):
             price_temp=self.load_prices(price_name)
             ratings_temp=ratings_temp[ratings_temp['item'].isin(price_temp.keys())]
             print(len(ratings_temp))
-            self.price_dict.update(price_temp)
-            cate_temp=dict(zip(price_temp.keys(),i))
-            self.cate_dict.update(cate_temp)
+            self.price_dict_temp.update(price_temp)
+            self.max_price[i]=max(list(price_temp.values()))
+            cate_temp={}
+            for j in price_temp.keys():
+                cate_temp[j]=i
+            self.cate_dict_temp.update(cate_temp)
+            price_temp.clear()
             try:
                 self.ratings=pd.merge(self.ratings,ratings_temp, how='outer')
             except:
                 self.ratings=ratings_temp
+        print(self.max_price)
         
     #old method
     def create_user_item_matrix(self, user_key="user",item_key="item"):
@@ -107,18 +116,46 @@ class DataLoader(object):
         reader=Reader(rating_scale=(1,5))
         data = Dataset.load_from_df(self.ratings[['user', 'item', 'rating']], reader)
         train_set=data.build_full_trainset()
-        self.ratings_predict=np.zeros([n,d])
         self.model.fit(train_set)
+        
+        self.inv_cate_dict={} #{'categoryA':[],'categoryB':[]}
+        for i in self.category:
+            self.inv_cate_dict[i]=[]
+        for j in train_set.all_items():
+            item_raw=train_set.to_raw_iid(j)
+            self.inv_cate_dict[self.cate_dict_temp[item_raw]].append(j)
+            self.price_dict[j]=self.price_dict_temp[item_raw]
+            self.cate_dict[j]=self.cate_dict_temp[item_raw]
+        self.cate_dict_temp.clear()
+        self.price_dict_temp.clear()
+        print("inv_cate_dict constructed.")
+        d=0
+        for i in self.category:
+            d+=len(self.inv_cate_dict[i])
+            print(i,':',len(self.inv_cate_dict[i]))
+            
+        self.ratings_predict=np.zeros([n,d])
         for i in train_set.all_users():
+            user_raw=train_set.to_raw_uid(i)
             for j in train_set.all_items():
-                user_raw=train_set.to_raw_uid(i)
                 item_raw=train_set.to_raw_iid(j)
                 self.ratings_predict[i][j]=self.model.predict(user_raw, item_raw)[3]
         print("predicted ratings generated.")
         
+        self.ranking=np.zeros([n,d])
+        temp={}
+        for i in range(n):
+            for c in self.category:
+                temp[c]=sorted(self.ratings_predict[i][self.inv_cate_dict[c]],reverse=True)
+            for j in range(d):
+                c=self.cate_dict[j]
+                self.ranking[i][j]= temp[c].index(self.ratings_predict[i][j])+1
+        print("user_item rankings generated.")
+    
     def save_data(self,save_path):
         self.dict_all={'prices':self.price_dict,#'raw_ratings':self.ratings_matrix,
-                           'new_ratings':self.ratings_predict,'cate':self.cate_dict}
+                           'new_ratings':self.ratings_predict,'cate':self.cate_dict,
+                           'rankings': self.ranking,'max_price':self.max_price}
                            #'user_mapper':self.user_mapper, 'item_mapper':self.item_mapper, 
                            #'user_inverse_mapper':self.user_inverse_mapper, 'item_inverse_mapper':self.item_inverse_mapper}
         with open(save_path,'wb') as f:
@@ -132,10 +169,13 @@ class DataLoader(object):
         self.ratings_predict=self.dict_all['new_ratings']
         self.price_dict=self.dict_all['prices']
         self.cate_dict=self.dict_all['cate']
+        self.ranking=self.dict_all['rankings']
+        self.max_price=self.dict_all['max_price']
         #self.user_mapper=self.dict_all['user_mapper']
         #self.item_mapper=self.dict_all['item_mapper']
         #self.user_inverse_mapper=self.dict_all['user_inverse_mapper']
         #self.item_inverse_mapper=self.dict_all['item_inverse_mapper']
+        self.dict_all.clear()
         del self.dict_all
         print("Saved data loaded.")
 
@@ -151,6 +191,10 @@ class MBRecsys(object):
         self.out_R= np.dot(np.dot(U, S), VT)+3
         self.out_R= self.out_R- np.minimum(self.out_R,0)
         self.out_R= self.out_R+5- np.maximum(self.out_R,5)
-        
         return self.out_R
+    
+if __name__ == '__main__':
+    category=['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
+    save_name='feature_1'
+    d=DataLoader(category,save_name)
     
