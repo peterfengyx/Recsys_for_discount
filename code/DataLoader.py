@@ -204,6 +204,14 @@ class MBRecsys(object):
         self.out_R= self.out_R+5- np.maximum(self.out_R,5)
         return self.out_R
 
+
+def create_output():
+    cat_names = ['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
+    save_names = 'feature_1'
+    d = DataLoader(cat_names,save_names)
+    return d
+
+
 if __name__ == '__main__':
     category=['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
     save_name='feature_1'
