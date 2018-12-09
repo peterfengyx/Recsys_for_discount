@@ -25,23 +25,24 @@ def parse(path):
 class DataLoader(object):
     def __init__(self,category,save_name):
         self.category=category
-        self.max_user=10000
+        self.max_user=10000 #maximum number of user
         self.price_dict={}
         self.price_dict_temp={}
         self.cate_dict={}
         self.cate_dict_temp={}
-        self.top_value=15
+        self.top_value=15 # top x features in SVD
         self.model=NMF()
-        self.topk=500
+        self.topk=500 #maximum items in each category, finding the top k popular
         self.max_price={}
         self.save_path= os.path.join("..", "feature", save_name)
         if not os.path.isfile(self.save_path):
-            self.load_data()
+            self.load_data() #load raw data
             #self.create_user_item_matrix()
             self.create_ratings()
-            self.save_data(self.save_path)
+            self.gen_new_price_dict()
+            self.save_data(self.save_path) #save the feature
         else:
-            self.load(self.save_path)
+            self.load(self.save_path) #load the feature
         
     
     def load_ratings(self, filename):
@@ -155,7 +156,8 @@ class DataLoader(object):
     def save_data(self,save_path):
         self.dict_all={'prices':self.price_dict,#'raw_ratings':self.ratings_matrix,
                            'new_ratings':self.ratings_predict,'cate':self.cate_dict,
-                           'rankings': self.ranking,'max_price':self.max_price}
+                           'rankings': self.ranking,'max_price':self.max_price,
+                           'new_price':self.new_price_dict}
                            #'user_mapper':self.user_mapper, 'item_mapper':self.item_mapper, 
                            #'user_inverse_mapper':self.user_inverse_mapper, 'item_inverse_mapper':self.item_inverse_mapper}
         with open(save_path,'wb') as f:
@@ -171,6 +173,7 @@ class DataLoader(object):
         self.cate_dict=self.dict_all['cate']
         self.ranking=self.dict_all['rankings']
         self.max_price=self.dict_all['max_price']
+        self.new_price_dict=self.dict_all['new_price']
         #self.user_mapper=self.dict_all['user_mapper']
         #self.item_mapper=self.dict_all['item_mapper']
         #self.user_inverse_mapper=self.dict_all['user_inverse_mapper']
@@ -178,6 +181,14 @@ class DataLoader(object):
         self.dict_all.clear()
         del self.dict_all
         print("Saved data loaded.")
+    
+    def gen_new_price_dict(self):
+        self.new_price_dict={}
+        for i in self.category:
+            self.new_price_dict[i]={}
+        for i in range(len(self.cate_dict)):
+            self.new_price_dict[self.cate_dict[i]][i]=self.price_dict[i]
+        print("new price dictionary generated.")
 
 class MBRecsys(object):
     def __init__(self,train_R,top_value):
@@ -197,4 +208,3 @@ if __name__ == '__main__':
     category=['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
     save_name='feature_1'
     d=DataLoader(category,save_name)
-    
