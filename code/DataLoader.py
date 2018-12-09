@@ -17,8 +17,6 @@ from surprise.prediction_algorithms.matrix_factorization import SVD, SVDpp, NMF
 from surprise import Dataset,Reader
 from random import sample
 
-
-
 def parse(path):
     g = gzip.open(path, 'r')
     for l in g:
@@ -195,41 +193,7 @@ class MBRecsys(object):
         self.out_R= self.out_R+5- np.maximum(self.out_R,5)
         return self.out_R
 
-
-def abc():
-    return 28
-
-
-# if __name__ == '__main__':
-#     # category=['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
-#     category=['Patio_Lawn_and_Garden', 'Musical_Instruments']
-#
-#     save_name='feature_1'
-#     d = DataLoader(category,save_name)
-#     print(d.price_dict)
-#     print(len(d.ranking))
-#     print(len(d.ranking[0]))
-#     print(d.cate_dict)
-#     print(d.max_price)
-#     print(d.ratings_predict[0])
-#     print(d.ratings_predict[1])
-#     output = d
-
-
-def create_output():
-    # category=['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
-    category = ['Patio_Lawn_and_Garden', 'Musical_Instruments']
-
-    save_name = 'feature_1'
-    d = DataLoader(category, save_name)
-    # print(d.price_dict)
-    # print(len(d.ranking))
-    # print(len(d.ranking[0]))
-    # print(d.cate_dict)
-    # print(d.max_price)
-    # print(d.ratings_predict[0])
-    # print(d.ratings_predict[1])
-    output = d
-    return output
-
-
+if __name__ == '__main__':
+    category=['Patio_Lawn_and_Garden','Musical_Instruments','Grocery_and_Gourmet_Food','Sports_and_Outdoors','Cell_Phones_and_Accessories']
+    save_name='feature_1'
+    d=DataLoader(category,save_name)
