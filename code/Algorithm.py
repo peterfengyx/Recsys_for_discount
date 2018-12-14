@@ -9,11 +9,12 @@ inv_cost = {}
 profit_predict = []
 ranking_profit = []
 REC_ITEM = 10
-global_threshold = 4 # 4 from vanilla must be in the profit RS
+global_threshold = -1  # 4 from vanilla must be in the profit RS
 rec_items_vanilla = []
 rec_item_only_profit = []
 rec_item_cat_thres = []
 rec_item_cat_glob = []
+global_trust_kept = 0
 
 
 def create_recommendation_vanilla():
@@ -41,7 +42,7 @@ def create_recommendation_only_profit():
         top = 1
         rec_prod = []
         profit = 0
-        while len(rec_prod) < REC_ITEM:
+        while len(rec_prod) < REC_ITEM and top <= len(ranking_profit[i]):
             top_index = list(ranking_profit[i]).index(top)
             if quan_copy[top_index] > 0:
                 rec_prod.append(top_index)
@@ -94,7 +95,7 @@ def create_recommendation_cat_threshold():
 
 
 def create_recommendation_global_threshold():
-    global profit_predict, ranking_profit, quantity, loader_obj, rec_items_vanilla, rec_item_cat_glob
+    global profit_predict, ranking_profit, quantity, loader_obj, rec_items_vanilla, rec_item_cat_glob, global_trust_kept
     quan_copy = copy.deepcopy(quantity)
 
     for i in range(len(ranking_profit)):
@@ -119,6 +120,15 @@ def create_recommendation_global_threshold():
                 profit += sorted_ob_prod_prof[j]['prof']
                 quan_copy[sorted_ob_prod_prof[j]['id']] -= 1
 
+        if len(rec_prod) == global_threshold:
+            global_trust_kept += 1
+        # else:
+        #     print("failed to keep trust")
+        #     print(sorted_ob_prod_prof)
+        #     for item in sorted_ob_prod_prof:
+        #         print(item['id'], quan_copy[item['id']])
+        #     break
+
         while len(rec_prod) < REC_ITEM and top <= len(ranking_profit[i]):
             product_id = list(ranking_profit[i]).index(top)
             if quan_copy[product_id] > 0 and product_id not in rec_prod:
@@ -127,52 +137,62 @@ def create_recommendation_global_threshold():
                 quan_copy[product_id] -= 1
             top += 1
         rec_item_cat_glob.append(rec_prod)
+
+        # if len(rec_prod) != REC_ITEM:
+        #     print("DANGER....NOT ENOUGH ITEMS")
+        #     break
         print("rect item cat glob ", i)
     return
 
 
-def create():
-    global quantity, inv_cost, profit_predict, ranking_profit, loader_obj
-    # loader_obj = create_output()
-    # van_ranking = []
-    # print("old ranking ", sorted(loader_obj.ranking[0]))
-    # for i in range(len(loader_obj.ratings_predict)):
-    #     rating = list(loader_obj.ratings_predict[i])
-    #     ranking_ind = np.zeros(len(rating))
-    #
-    #     rank = 1
-    #     while rank <= len(rating):
-    #         index = list(rating).index(max(rating))
-    #         ranking_ind[index] = rank
-    #         rank += 1
-    #         rating[index] = -1
-    #     van_ranking.append(ranking_ind)
-    #     print("van ranking for user ", i)
-    # loader_obj.ranking = van_ranking   # previous van ranking was wrong
-    # pickle.dump(loader_obj, open("../feature/data_loader.p", "wb"))
-    loader_obj = pickle.load(open("../feature/data_loader.p", "rb"))
-    ob = pickle.load(open("../feature/profit_feature.p", "rb"))
-    quantity = ob['quantity']
-    inv_cost = ob['inv_cost']
-    profit_predict = ob['profit_predict']
-    ranking_profit = ob['profit_ranking']
+def create(threshold_val):
+    global rec_items_vanilla, rec_item_only_profit, rec_item_cat_glob, rec_item_cat_thres, global_trust_kept, global_threshold
+    rec_items_vanilla = []
+    rec_item_only_profit = []
+    rec_item_cat_thres = []
+    rec_item_cat_glob = []
+    global_trust_kept = 0
+    global_threshold = threshold_val
+
     return
 
 
-def save_file():
-    global rec_items_vanilla, rec_item_only_profit, rec_item_cat_glob, rec_item_cat_thres
+def save_file(th, qu):
+    global rec_items_vanilla, rec_item_only_profit, rec_item_cat_glob, rec_item_cat_thres, global_trust_kept
     ob = {
         'vanilla': rec_items_vanilla,
         'profit_only': rec_item_only_profit,
         'trust_category': rec_item_cat_thres,
-        'trust_global': rec_item_cat_glob
+        'trust_global': rec_item_cat_glob,
+        'global_trust_kept': global_trust_kept
     }
-    pickle.dump(ob, open("../feature/algo_output_10_4_half.p", "wb"))
+    pickle.dump(ob, open("../feature/algo_output_1_" + str(qu) + "_0.5_0.1_" + str(th) + ".p", "wb"))
+    return
 
 
-create()
-create_recommendation_vanilla()
-create_recommendation_only_profit()
-create_recommendation_cat_threshold()
-create_recommendation_global_threshold()
-save_file()
+def create_algo_output():
+    global quantity, inv_cost, profit_predict, ranking_profit, loader_obj
+    loader_obj = pickle.load(open("../feature/data_loader.p", "rb"))
+
+    quantities = [100, 200, 300, 400]
+    for qu in quantities:
+        ob = pickle.load(open("../feature/profit_feature_1_" + str(qu) + "_0.5_0.1.p", "rb"))
+
+        thresholds = [4, 6, 8]
+        quantity = ob['quantity']
+        inv_cost = ob['inv_cost']
+        profit_predict = ob['profit_predict']
+        ranking_profit = ob['profit_ranking']
+        print(quantity)
+        for threshold in thresholds:
+            create(threshold)
+            create_recommendation_vanilla()
+            create_recommendation_only_profit()
+            create_recommendation_cat_threshold()
+            create_recommendation_global_threshold()
+            save_file(threshold, qu)
+
+    return
+
+
+create_algo_output()

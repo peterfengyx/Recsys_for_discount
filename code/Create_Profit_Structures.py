@@ -8,7 +8,7 @@ quantity = {}
 inv_cost = {}
 profit_predict = []
 ranking_profit = []
-lambda_cons = 1
+lambda_cons = -1
 quantity_value = 200
 
 
@@ -135,20 +135,36 @@ def create_inventory_cost():
     return
 
 
-def save_file():
+def save_file(l_val, q_val):
     global quantity, inv_cost, profit_predict
     all_obj = {}
     all_obj['quantity'] = quantity
     all_obj['inv_cost'] = inv_cost
     all_obj['profit_predict'] = profit_predict
     all_obj['profit_ranking'] = ranking_profit
-    pickle.dump(all_obj, open("../feature/profit_feature_1_200_0.5_0.1.p", "wb"))   # name => lambda, quantity, mean, sigma
+    pickle.dump(all_obj, open("../feature/profit_feature_" + str(l_val) + "_" + str(q_val) +"_0.5_0.1.p", "wb"))   # name => lambda, quantity, mean, sigma
     return
 
 
-create_obj()
-create_quantity()
-create_inventory_cost()
-calculate_profit()
-calculate_ranking()
-save_file()
+def create_ds():
+    global lambda_cons, loader_obj, quantity, inv_cost, profit_predict, ranking_profit, quantity_value
+    lambda_all = [1, 0.7, 0.5, 0.3]
+    for val in lambda_all:
+        loader_obj = None
+        quantity = {}
+        inv_cost = {}
+        profit_predict = []
+        ranking_profit = []
+        lambda_cons = -1
+        quantity_value = 400
+
+        lambda_cons = val
+        create_obj()
+        create_quantity()
+        create_inventory_cost()
+        calculate_profit()
+        calculate_ranking()
+        save_file(val, quantity_value)
+
+
+create_ds()
