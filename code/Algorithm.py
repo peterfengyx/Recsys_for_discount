@@ -15,6 +15,7 @@ rec_item_only_profit = []
 rec_item_cat_thres = []
 rec_item_cat_glob = []
 global_trust_kept = 0
+product_category = None
 
 
 def create_recommendation_vanilla():
@@ -58,14 +59,11 @@ def create_recommendation_only_profit():
     return
 
 
-def within_category_threshold(user_id, product_id):
-    cat_len = -1
-    for key in loader_obj.new_price_dict:
-        obj = loader_obj.new_price_dict[key]
-        if product_id in obj:
-            cat_len = len(loader_obj.new_price_dict[key])
-            break
-    threshold = cat_len / 2 # threshold initialized as half of total number of items in a category
+def within_category_threshold(user_id, product_id, th):
+    cat = product_category[product_id]
+    cat_len = len(loader_obj.new_price_dict[cat])
+
+    threshold = int(cat_len / th)  # threshold initialized as half of total number of items in a category
     user_ranked = loader_obj.ranking[user_id][product_id]  # get user ranking from vanilla RS
     #print("user id , product id , threshold , user ranked ", user_id, product_id, threshold, user_ranked)
     if user_ranked < threshold:
@@ -73,7 +71,7 @@ def within_category_threshold(user_id, product_id):
     return False
 
 
-def create_recommendation_cat_threshold():
+def create_recommendation_cat_threshold(threshold):
 
     global profit_predict, ranking_profit, quantity, rec_item_cat_thres
     quan_copy = copy.deepcopy(quantity)
@@ -84,7 +82,7 @@ def create_recommendation_cat_threshold():
         profit = 0
         while len(rec_prod) < REC_ITEM and top <= len(ranking_profit[i]):
             top_index = list(ranking_profit[i]).index(top)   # this is the product id
-            if within_category_threshold(i, top_index) and quan_copy[top_index] > 0:
+            if within_category_threshold(i, top_index, threshold) and quan_copy[top_index] > 0:
                 rec_prod.append(top_index)
                 profit += profit_predict[i][top_index]
                 quan_copy[top_index] -= 1  # decrement quantity
@@ -195,4 +193,90 @@ def create_algo_output():
     return
 
 
-create_algo_output()
+def create_algo_output_cat_only():
+    global quantity, inv_cost, profit_predict, ranking_profit, loader_obj, rec_item_cat_thres, product_category
+    loader_obj = pickle.load(open("../feature/data_loader.p", "rb"))
+    product_category = pickle.load(open("../feature/product_category.p", "rb"))
+
+    quantities = [100, 200, 300, 400]
+    cat_ob = {}
+    for qu in quantities:
+        ob = pickle.load(open("../feature/profit_feature_1_" + str(qu) + "_0.5_0.1.p", "rb"))
+
+        thresholds = [2, 3, 5]
+        quantity = ob['quantity']
+        inv_cost = ob['inv_cost']
+        profit_predict = ob['profit_predict']
+        ranking_profit = ob['profit_ranking']
+        print(quantity)
+        for threshold in thresholds:
+            rec_item_cat_thres = []
+            str_key = 'cat_' + str(qu) + "_" + str(threshold)
+            if threshold == 2:
+                algo_o = pickle.load(open("../feature/algo_output_1_" + str(qu) + "_0.5_0.1_4.p", "rb"))
+                rec_item_cat_thres = algo_o['trust_category']
+            else:
+                create_recommendation_cat_threshold(threshold)
+            print(rec_item_cat_thres[0])
+            cat_ob[str_key] = rec_item_cat_thres
+        print("done ", qu)
+    pickle.dump(cat_ob, open("../feature/category_ob.p", "wb"))
+
+    return
+
+
+def sort_user():
+    quantities = [100, 200, 300, 400]
+    profit_all = []
+    for qu in quantities:
+        ob = pickle.load(open("../feature/algo_output_1_" + str(qu) + "_0.5_0.1_4.p", "rb"))
+        ds = pickle.load(open("../feature/profit_feature_1_" + str(qu) + "_0.5_0.1.p", "rb"))
+        ob_prof = ob['profit_only']
+        ds_prof = ds['profit_predict']
+        sorted_user = []
+        profit_only_ind = 0
+        for i in range(len(ob_prof)):
+            profit = 0
+            for j in range(len(ob_prof[i])):
+                profit += ds_prof[i][ob_prof[i][j]]
+                profit_only_ind += ds_prof[i][ob_prof[i][j]]
+            sorted_user.append({
+                'user': i,
+                'profit': profit
+            })
+        print(profit_only_ind/10000)
+        sorted_user_all = sorted(sorted_user, key=lambda x: x['profit'], reverse=True)
+        print(sorted_user_all[:10])
+        pickle.dump(sorted_user_all, open("../feature/sorted_user_1_" + str(qu) + "_0.5_0.1_" + ".p", "wb"))
+
+    return
+
+
+def create_prod_cat():
+    prod_cat = {}
+    loader_obj = pickle.load(open("../feature/data_loader.p", "rb"))
+
+    for key in loader_obj.new_price_dict:
+        obj = loader_obj.new_price_dict[key]
+        for product in obj:
+            prod_cat[product] = key
+    print(prod_cat)
+    pickle.dump(prod_cat, open("../feature/product_category.p", "wb"))
+    return
+
+
+def test():
+    ox = pickle.load(open("../feature/category_ob.p", "rb"))
+    for key in ox:
+        print(key)
+        print(ox[key][9000])
+    algo_o = pickle.load(open("../feature/algo_output_1_" + "100_0.5_0.1_4.p", "rb"))
+    print("global 4", algo_o['trust_global'][9000])
+
+    return
+
+
+# create_algo_output()
+# sort_user()
+# create_algo_output_cat_only()
+# create_prod_cat()
